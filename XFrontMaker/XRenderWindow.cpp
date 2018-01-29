@@ -1,6 +1,5 @@
 #include "XRenderWindow.h"
 
-#include "XResource.h"
 #include "XFrontMaker.h"
 
 namespace Smile
@@ -12,20 +11,9 @@ namespace Smile
 	void Smile::XRenderWindow::Begin()
 	{
 		_Maker.Init("../Resources/simsun.ttc");
-		//_Maker.Scan()
-		char* pBuffer;
-		int w, h;
-		_texture = _Maker.CreateTex("./0.png", w, h);
-		//glEnable(GL_TEXTURE_2D);
-		//XResource::LoadTextureFile("./0.png", &pBuffer, &w, &h);
-		//{
-		//	glGenTextures(1, &_texture);
-		//	glBindTexture(GL_TEXTURE_2D, _texture);
-		//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		//	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer);
-		//	glBindTexture(GL_TEXTURE_2D, 0);
-		//}
+		_Maker.Scan(L"1234567890OpenGL除了读取图像内存显示图像之外还有另一种图像显示方式：纹理显示。纹理显示相比于读内存直接显示稍复杂，读内存显示只需要glDrawPixels ()函数即可实现，纹理显示则需要设置更多参数，当然纹理显示的好处是让显示变得更灵活。由于涉及读取图片，依旧使用OpenCV图像读取");
+		_Maker.SaveAll();
+		_Maker.InitRender();
 	}
 
 	void Smile::XRenderWindow::Render()
@@ -39,11 +27,11 @@ namespace Smile
 		glViewport(0, 0, _w, _h);
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
-		glOrtho(0, _w, 0, _h, -100, 100);
+		glOrtho(-1.1, +1.1, -1.1, +1.1, -100, 100);
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
 
-		_Maker.Render(_texture);
+		_Maker.Render(0);
 	}
 
 	void Smile::XRenderWindow::End()

@@ -59,9 +59,10 @@ namespace Smile
 		int GetTexNum();
 		void Save(unsigned int index);
 		void SaveAll();
-		void Render(GLuint tex);
+		void InitRender();
+		void Render(unsigned int index);
 
-		GLuint CreateTex(const char* pTex, int& w, int& h);
+		GLuint CreateTexture(unsigned int index);
 
 	private:
 		FT_Library _Library;
@@ -79,6 +80,8 @@ namespace Smile
 
 		unsigned int _CurTextureOffsetX;
 		unsigned int _CurTextureOffsetY;
+
+		std::vector<GLuint> _AllRenderTextures;
 	};
 
 }

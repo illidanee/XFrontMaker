@@ -13,7 +13,7 @@ int __stdcall WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance
 	XGLWindow::RegisterWndClass(_T("illidan"));
 
 	//创建窗口
-	XGLWindow* pWindow = XGLWindow::Create<XRenderWindow>(_T("illidan"), _T("主窗口"), 450, 200, 800, 600);
+	XGLWindow* pWindow = XGLWindow::Create<XRenderWindow>(_T("illidan"), _T("主窗口"), 100, 100, 1280, 800);
 
 	XGLWindow::Update();
 

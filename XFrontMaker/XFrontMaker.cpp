@@ -14,16 +14,19 @@ namespace Smile
 
 	void XFrontMaker::Init(const char* pFront)
 	{
+		glEnable(GL_TEXTURE_2D);
+		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
 		FT_Init_FreeType(&_Library);
 		FT_New_Face(_Library, pFront, 0, &_Face);
 		FT_Select_Charmap(_Face, FT_ENCODING_UNICODE);
-		_Size = 32;
+		_Size = 18;
 		FT_Set_Pixel_Sizes(_Face, 0, _Size);
 
 		memset(_CharInfos, 0, (1 << 16) * sizeof(XFrontCharInfo));
 
-		_TextureW = 256;
-		_TextureH = 256;
+		_TextureW = 1024;
+		_TextureH = 1024;
 
 		GLuint textureID;
 		glGenTextures(1, &textureID);
@@ -39,13 +42,14 @@ namespace Smile
 		_CurTextureOffsetX = 0;
 		_CurTextureOffsetY = 0;
 
-		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	}
 
 	void XFrontMaker::Done()
 	{
 		FT_Done_Face(_Face);
 		FT_Done_FreeType(_Library);
+
+		glDisable(GL_TEXTURE_2D);
 	}
 
 	void XFrontMaker::Scan(wchar_t* pStr)
@@ -99,7 +103,7 @@ namespace Smile
 
 				_AllTextures.push_back(textureID);
 				++_CurTextureIndex;
-				_CurTextureOffsetY = 0;
+				_CurTextureOffsetY = 0; 
 			}	
 		}
 	}
@@ -140,16 +144,25 @@ namespace Smile
 		}
 	}
 
-	void XFrontMaker::Render(GLuint tex)
+	void XFrontMaker::InitRender()
+	{
+		for (unsigned int i = 0; i < _AllTextures.size(); ++i)
+		{
+			GLuint texture = CreateTexture(i);
+			_AllRenderTextures.push_back(texture);
+		}
+	}
+
+	void XFrontMaker::Render(unsigned int index)
 	{
 		XVertexInfo vertices[] = {
-			{ 200, 150, 0.0f,	0.0f,0.0f },
-			{ 600, 150, 0.0f,	1.0f,0.0f },
-			{ 600, 450, 0.0f,	1.0f,1.0f },
-			{ 200, 450, 0.0f,	0.0f,1.0f }
+			{ -1, -1, 0.0f,	0.0f,1.0f },
+			{ +1, -1, 0.0f,	1.0f,1.0f },
+			{ +1, +1, 0.0f,	1.0f,0.0f },
+			{ -1, +1, 0.0f,	0.0f,0.0f }
 		};
 
-		glBindTexture(GL_TEXTURE_2D, tex);
+		glBindTexture(GL_TEXTURE_2D, _AllRenderTextures[index]);
 
 		glEnableClientState(GL_VERTEX_ARRAY);
 		glVertexPointer(3, GL_FLOAT, sizeof(XVertexInfo), (const void*)&vertices[0]._X);
@@ -164,32 +177,35 @@ namespace Smile
 		glBindTexture(GL_TEXTURE_2D, 0);
 	}
 
-	GLuint XFrontMaker::CreateTex(const char* pTex, int& w, int& h)
+	GLuint XFrontMaker::CreateTexture(unsigned int index)
 	{
-		FREE_IMAGE_FORMAT fif = FreeImage_GetFileType(pTex, 0);
+		char buffer[32] = {};
+		sprintf(buffer, "%d.png", index);
+
+		FREE_IMAGE_FORMAT fif = FreeImage_GetFileType(buffer, 0);
 		if (fif == FIF_UNKNOWN)
 			return 0;
 
-		FIBITMAP* dib = FreeImage_Load(fif, pTex);
+		FIBITMAP* dib = FreeImage_Load(fif, buffer);
 
 		FIBITMAP* temp = dib;
 		dib = FreeImage_ConvertTo32Bits(dib);
 		FreeImage_Unload(temp);
 
 		char* pBuffer = (char*)FreeImage_GetBits(dib);
-		w = FreeImage_GetWidth(dib);
-		h = FreeImage_GetHeight(dib);
+		int w = FreeImage_GetWidth(dib);
+		int h = FreeImage_GetHeight(dib);
 
-		GLuint textureID;
-		glGenTextures(1, &textureID);
-		glBindTexture(GL_TEXTURE_2D, textureID);
+		GLuint _texture;
+		glGenTextures(1, &_texture);
+		glBindTexture(GL_TEXTURE_2D, _texture);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer);
 		glBindTexture(GL_TEXTURE_2D, 0);
 
-		//FreeImage_Unload(dib);
+		FreeImage_Unload(dib);
 
-		return textureID;
+		return _texture;
 	}
 }

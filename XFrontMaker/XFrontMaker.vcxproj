@@ -163,7 +163,6 @@
     <ClInclude Include="XGLWindow.h" />
     <ClInclude Include="XMath.h" />
     <ClInclude Include="XRenderWindow.h" />
-    <ClInclude Include="XResource.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Glew\src\glew.c" />
@@ -172,7 +171,6 @@
     <ClCompile Include="XGLContent.cpp" />
     <ClCompile Include="XGLWindow.cpp" />
     <ClCompile Include="XRenderWindow.cpp" />
-    <ClCompile Include="XResource.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
