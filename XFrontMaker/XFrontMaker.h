@@ -2,19 +2,25 @@
 
 #include <vector>
 
-#include "XGLContent.h"
-
-#include <FreeImage.h>
+#include <tchar.h>
+#include <windows.h>
+#include <gl/glew.h>
+#include <gl/wglew.h>
+#include <gl/GL.h>
+#include <gl/GLU.h>
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+
+#include "XMath.h"
 
 namespace Smile
 {
 	struct XVertexInfo
 	{
-		float _X, _Y, _Z;
-		float _U, _V;
+		XVec3f _Pos;
+		XVec2f _UV;
+		BGRA8U _Color;
 	};
 
 	struct XFrontCharInfo
@@ -23,12 +29,12 @@ namespace Smile
 		int _TexIndex;
 		int _X;
 		int _Y;
-		int _Width;
-		int _Height;
+		unsigned int _Width;
+		unsigned int _Height;
 		int _BearingX;
 		int _BearingY;
-		int _AdvanceX;
-		int _AdvanceY;
+		long _AdvanceX;
+		long _AdvanceY;
 
 		XFrontCharInfo()
 		{
@@ -45,6 +51,12 @@ namespace Smile
 		}
 	};
 
+
+	/****************************************************************************************************************
+	 *
+	 *    Brief   : 类过大。需要动态生成。使用栈空间会报错。
+	 *
+	 ****************************************************************************************************************/
 	class XFrontMaker
 	{
 	public:
@@ -55,6 +67,8 @@ namespace Smile
 		void Done();
 		void Scan(wchar_t* pStr);
 		void ScanChar(wchar_t c);
+		void Write(wchar_t* pStr, int x, int y, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
+
 
 		int GetTexNum();
 		void Save(unsigned int index);
@@ -65,23 +79,31 @@ namespace Smile
 		GLuint CreateTexture(unsigned int index);
 
 	private:
+		//FT库
 		FT_Library _Library;
 		FT_Face _Face;
 
-		unsigned int _Size;
+		//字体大小
+		int _Size;
 
+		//字符缓存
 		XFrontCharInfo _CharInfos[1 << 16];
 
-		unsigned int _TextureW;
-		unsigned int _TextureH;
+		//纹理缓存
+		int _TextureW;
+		int _TextureH;
 
 		std::vector<GLuint> _AllTextures;
-		unsigned int _CurTextureIndex;
+		int _CurTextureIndex;
 
-		unsigned int _CurTextureOffsetX;
-		unsigned int _CurTextureOffsetY;
+		int _CurTextureOffsetX;
+		int _CurTextureOffsetY;
 
+		//渲染缓存
 		std::vector<GLuint> _AllRenderTextures;
+
+		//绘制缓存
+		XVertexInfo _VertexBuffer[1 << 16];
 	};
 
 }

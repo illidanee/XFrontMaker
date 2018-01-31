@@ -27,11 +27,12 @@ namespace Smile
 		glViewport(0, 0, _w, _h);
 		glMatrixMode(GL_PROJECTION);
 		glLoadIdentity();
-		glOrtho(-1.1, +1.1, -1.1, +1.1, -100, 100);
+		glOrtho(0, _w, 0, _h, -100, 100);
 		glMatrixMode(GL_MODELVIEW);
 		glLoadIdentity();
 
-		_Maker.Render(0);
+		//_Maker.Render(0);
+		_Maker.Write(L"0OpenGL除了读  取图像内存显示图像", 100, 100, 255, 0, 0, 255);
 	}
 
 	void Smile::XRenderWindow::End()
