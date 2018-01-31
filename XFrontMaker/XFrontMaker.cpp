@@ -1,6 +1,6 @@
 #include "XFrontMaker.h"
 
-#include "../ThirdLib/XFileManager.h"
+#include "XFileManager.h"
 
 namespace Smile
 {
