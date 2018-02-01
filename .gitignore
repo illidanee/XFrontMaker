@@ -1,22 +1,16 @@
 *.db
 *.enc
 *.idb
-*.ilk
 *.opendb
 *.suo
 
 *.log
 *.tlog
 
-*.pdb
-*ipdb
-
 *.pch
 *.ipch
 
 *.obj
-*iobj
-
 *.exe
 
 
