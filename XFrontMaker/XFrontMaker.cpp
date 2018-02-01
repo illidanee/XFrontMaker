@@ -81,12 +81,17 @@ namespace Smile
 		glEnable(GL_TEXTURE_2D);
 
 		//获取字型信息
-		FT_Load_Char(_Face, c, FT_LOAD_RENDER | FT_LOAD_MONOCHROME);
+		FT_Load_Char(_Face, c, FT_LOAD_NO_BITMAP);
 
-		//转换成抗锯齿位图
-		FT_Render_Glyph(_Face->glyph, FT_RENDER_MODE_NORMAL);
+		//根据字体大小生成字型位图
+		if (_Size < 20)
+			//生成非抗锯齿字型位图
+			FT_Render_Glyph(_Face->glyph, FT_RENDER_MODE_MONO);
+		else
+			//生成抗锯齿字型位图
+			FT_Render_Glyph(_Face->glyph, FT_RENDER_MODE_NORMAL);
 
-		//获取字符信息
+		//获取字型信息
 		FT_GlyphSlot glyphSlot = _Face->glyph;
 		FT_Bitmap bitmap = glyphSlot->bitmap;
 
@@ -107,6 +112,7 @@ namespace Smile
 			}
 		}
 
+		//保存字型信息
 		_CharInfos[c]._Found = true;
 		_CharInfos[c]._TexIndex = _CurTextureIndex;
 		_CharInfos[c]._X = _CurTextureOffsetX;
@@ -147,99 +153,6 @@ namespace Smile
 				++_CurTextureIndex;
 				_CurTextureOffsetY = 0; 
 			}	
-		}
-	}
-
-	void XFrontMaker::ScanEx(wchar_t* pStr)
-	{
-		int size = (int)wcslen(pStr);
-		for (int i = 0; i < size; ++i)
-		{
-			ScanCharEx(pStr[i]);
-		}
-	}
-
-	void XFrontMaker::ScanCharEx(wchar_t c)
-	{
-		if (_CharInfos[c]._Found == true)
-			return;
-
-		glEnable(GL_TEXTURE_2D);
-
-		//获取字型信息
-		FT_Load_Char(_Face, c, FT_LOAD_RENDER | FT_LOAD_MONOCHROME);
-		//FT_GlyphSlot glyphSlot = _Face->glyph;
-		//FT_Bitmap bitmap = glyphSlot->bitmap;
-
-		//获取字型
-		FT_Glyph glyph;
-		FT_Get_Glyph(_Face->glyph, &glyph);
-
-		//转换成位图并使用抗锯齿
-		FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
-		FT_BitmapGlyph bitmapGlyph = (FT_BitmapGlyph)glyph;
-		FT_Bitmap& bitmap = bitmapGlyph->bitmap;
-
-		//数据转化，否则小字体不会正常显示。
-		FT_Bitmap newBitmap;
-		FT_Bitmap_New(&newBitmap);
-		FT_Bitmap* pBitmap = &bitmap;
-		if (bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
-		{
-			if (FT_Bitmap_Convert(_Library, &bitmap, &newBitmap, 1) == 0)
-			{
-				/**
-				*   Go through the bitmap and convert all of the nonzero values to 0xFF (white).
-				*/
-				for (unsigned char* p = newBitmap.buffer, *endP = p + newBitmap.width * newBitmap.rows; p != endP; ++p)
-					*p ^= -*p ^ *p;
-				pBitmap = &newBitmap;
-			}
-		}
-
-		_CharInfos[c]._Found = true;
-		_CharInfos[c]._TexIndex = _CurTextureIndex;
-		_CharInfos[c]._X = _CurTextureOffsetX;
-		_CharInfos[c]._Y = _CurTextureOffsetY;
-		_CharInfos[c]._Width = pBitmap->width;
-		_CharInfos[c]._Height = pBitmap->rows;
-		_CharInfos[c]._BearingX = _Face->glyph->bitmap_left;
-		_CharInfos[c]._BearingY = _Face->glyph->bitmap_top;
-		_CharInfos[c]._AdvanceX = _Face->glyph->advance.x / 64;
-		_CharInfos[c]._AdvanceY = _Face->glyph->advance.y / 64;
-
-		//保存字型纹理
-		glBindTexture(GL_TEXTURE_2D, _AllTextures[_CurTextureIndex]);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, _CharInfos[c]._X, _CharInfos[c]._Y, _CharInfos[c]._Width, _CharInfos[c]._Height, GL_ALPHA, GL_UNSIGNED_BYTE, pBitmap->buffer);
-		glBindTexture(GL_TEXTURE_2D, 0);
-		_CheckError();
-		
-		//销毁
-		FT_Bitmap_Done(_Library, &newBitmap);
-
-		//辅助信息
-		_CurTextureOffsetX += _CharInfos[c]._Width + 1; //此处使用_CharInfos[c]._AdvanceX会浪费空间。
-		if (_CharInfos[c]._Width > _Size)
-			int a = 0;
-		if (_CurTextureOffsetX + _Size >= _TextureW)
-		{
-			_CurTextureOffsetX = 0;
-
-			_CurTextureOffsetY += _Size + 1;
-			if (_CurTextureOffsetY >= _TextureH)
-			{
-				GLuint textureID;
-				glGenTextures(1, &textureID);
-				glBindTexture(GL_TEXTURE_2D, textureID);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, _TextureW, _TextureH, 0, GL_ALPHA, GL_UNSIGNED_BYTE, nullptr);
-				glBindTexture(GL_TEXTURE_2D, 0);
-
-				_AllTextures.push_back(textureID);
-				++_CurTextureIndex;
-				_CurTextureOffsetY = 0;
-			}
 		}
 	}
 

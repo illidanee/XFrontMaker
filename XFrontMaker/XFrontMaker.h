@@ -67,12 +67,8 @@ namespace Smile
 
 		void Init(const char* pFront, int size = 20);
 		void Done();
-		//字体大小要求 >= 18 px
 		void Scan(wchar_t* pStr);
 		void ScanChar(wchar_t c);
-		//字体大小要求 >= 12 px
-		void ScanEx(wchar_t* pStr);
-		void ScanCharEx(wchar_t c);
 		void Write(wchar_t* pStr, int x, int y, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 
 		int GetTexNum();
