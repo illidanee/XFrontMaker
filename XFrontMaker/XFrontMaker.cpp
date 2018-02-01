@@ -81,7 +81,7 @@ namespace Smile
 		glEnable(GL_TEXTURE_2D);
 
 		//获取字型信息
-		FT_Load_Char(_Face, c, FT_LOAD_RENDER);
+		FT_Load_Char(_Face, c, FT_LOAD_RENDER | FT_LOAD_MONOCHROME);
 
 		//转换成抗锯齿位图
 		FT_Render_Glyph(_Face->glyph, FT_RENDER_MODE_NORMAL);
@@ -167,7 +167,7 @@ namespace Smile
 		glEnable(GL_TEXTURE_2D);
 
 		//获取字型信息
-		FT_Load_Char(_Face, c, FT_LOAD_RENDER);
+		FT_Load_Char(_Face, c, FT_LOAD_RENDER | FT_LOAD_MONOCHROME);
 		//FT_GlyphSlot glyphSlot = _Face->glyph;
 		//FT_Bitmap bitmap = glyphSlot->bitmap;
 
