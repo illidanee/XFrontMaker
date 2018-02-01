@@ -11,6 +11,8 @@
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include FT_GLYPH_H
+#include FT_BITMAP_H
 
 #include "XMath.h"
 
@@ -63,12 +65,15 @@ namespace Smile
 		XFrontMaker();
 		~XFrontMaker();
 
-		void Init(const char* pFront);
+		void Init(const char* pFront, int size = 20);
 		void Done();
+		//字体大小要求 >= 18 px
 		void Scan(wchar_t* pStr);
 		void ScanChar(wchar_t c);
+		//字体大小要求 >= 12 px
+		void ScanEx(wchar_t* pStr);
+		void ScanCharEx(wchar_t c);
 		void Write(wchar_t* pStr, int x, int y, unsigned char r, unsigned char g, unsigned char b, unsigned char a);
-
 
 		int GetTexNum();
 		void Save(unsigned int index);
@@ -77,6 +82,8 @@ namespace Smile
 		void Render(unsigned int index);
 
 		GLuint CreateTexture(unsigned int index);
+
+		void _CheckError();
 
 	private:
 		//FT库

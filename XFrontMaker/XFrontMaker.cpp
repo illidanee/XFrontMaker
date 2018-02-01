@@ -14,7 +14,7 @@ namespace Smile
 
 	}
 
-	void XFrontMaker::Init(const char* pFront)
+	void XFrontMaker::Init(const char* pFront, int size)
 	{
 		glEnable(GL_TEXTURE_2D);
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -22,8 +22,13 @@ namespace Smile
 		FT_Init_FreeType(&_Library);
 		FT_New_Face(_Library, pFront, 0, &_Face);
 		FT_Select_Charmap(_Face, FT_ENCODING_UNICODE);
-		_Size = 18;
-		FT_Set_Pixel_Sizes(_Face, 0, _Size);
+		_Size = size;
+		FT_Set_Pixel_Sizes(_Face, _Size, _Size);
+
+		//使用DPI设置像素的时候，如果DPI不是大于72,则字体的宽高会大于_Size,此时字体的缓存换行判断就会出问题。
+		//如果需要使用需要修改代码保存字体的最大宽高，用于字体缓存换行判断。
+		//FT_F26Dot6 ftSize = (FT_F26Dot6)(_Size * (1 << 6));
+		//FT_Set_Char_Size(_Face, ftSize, 0, 200, 200);
 
 		memset(_CharInfos, 0, (1 << 16) * sizeof(XFrontCharInfo));
 
@@ -67,6 +72,8 @@ namespace Smile
 		if (_CharInfos[c]._Found == true)
 			return;
 
+		glEnable(GL_TEXTURE_2D);
+
 		//获取字型信息
 		FT_Load_Char(_Face, c, FT_LOAD_RENDER);
 		FT_GlyphSlot glyphSlot = _Face->glyph;
@@ -102,7 +109,7 @@ namespace Smile
 				glBindTexture(GL_TEXTURE_2D, textureID);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, _TextureW, _TextureH, 0, GL_ALPHA, GL_UNSIGNED_BYTE, NULL);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, _TextureW, _TextureH, 0, GL_ALPHA, GL_UNSIGNED_BYTE, nullptr);
 				glBindTexture(GL_TEXTURE_2D, 0);
 
 				_AllTextures.push_back(textureID);
@@ -112,11 +119,105 @@ namespace Smile
 		}
 	}
 
+	void XFrontMaker::ScanEx(wchar_t* pStr)
+	{
+		int size = (int)wcslen(pStr);
+		for (int i = 0; i < size; ++i)
+		{
+			ScanCharEx(pStr[i]);
+		}
+	}
+
+	void XFrontMaker::ScanCharEx(wchar_t c)
+	{
+		if (_CharInfos[c]._Found == true)
+			return;
+
+		glEnable(GL_TEXTURE_2D);
+
+		//获取字型信息
+		FT_Load_Char(_Face, c, FT_LOAD_RENDER);
+		//FT_GlyphSlot glyphSlot = _Face->glyph;
+		//FT_Bitmap bitmap = glyphSlot->bitmap;
+
+		//获取字型
+		FT_Glyph glyph;
+		FT_Get_Glyph(_Face->glyph, &glyph);
+
+		//转换成位图并使用抗锯齿
+		FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_MONO, 0, 1);
+		FT_BitmapGlyph bitmapGlyph = (FT_BitmapGlyph)glyph;
+		FT_Bitmap& bitmap = bitmapGlyph->bitmap;
+
+		//数据转化，否则小字体不会正常显示。
+		FT_Bitmap newBitmap;
+		FT_Bitmap_New(&newBitmap);
+		FT_Bitmap* pBitmap = &bitmap;
+		if (bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
+		{
+			if (FT_Bitmap_Convert(_Library, &bitmap, &newBitmap, 1) == 0)
+			{
+				/**
+				*   Go through the bitmap and convert all of the nonzero values to 0xFF (white).
+				*/
+				for (unsigned char* p = newBitmap.buffer, *endP = p + newBitmap.width * newBitmap.rows; p != endP; ++p)
+					*p ^= -*p ^ *p;
+				pBitmap = &newBitmap;
+			}
+		}
+
+		_CharInfos[c]._Found = true;
+		_CharInfos[c]._TexIndex = _CurTextureIndex;
+		_CharInfos[c]._X = _CurTextureOffsetX;
+		_CharInfos[c]._Y = _CurTextureOffsetY;
+		_CharInfos[c]._Width = pBitmap->width;
+		_CharInfos[c]._Height = pBitmap->rows;
+		_CharInfos[c]._BearingX = _Face->glyph->bitmap_left;
+		_CharInfos[c]._BearingY = _Face->glyph->bitmap_top;
+		_CharInfos[c]._AdvanceX = _Face->glyph->advance.x / 64;
+		_CharInfos[c]._AdvanceY = _Face->glyph->advance.y / 64;
+
+		//保存字型纹理
+		glBindTexture(GL_TEXTURE_2D, _AllTextures[_CurTextureIndex]);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, _CharInfos[c]._X, _CharInfos[c]._Y, _CharInfos[c]._Width, _CharInfos[c]._Height, GL_ALPHA, GL_UNSIGNED_BYTE, pBitmap->buffer);
+		glBindTexture(GL_TEXTURE_2D, 0);
+		_CheckError();
+		
+		//销毁
+		FT_Bitmap_Done(_Library, &newBitmap);
+
+		//辅助信息
+		_CurTextureOffsetX += _CharInfos[c]._Width + 1; //此处使用_CharInfos[c]._AdvanceX会浪费空间。
+		if (_CharInfos[c]._Width > _Size)
+			int a = 0;
+		if (_CurTextureOffsetX + _Size >= _TextureW)
+		{
+			_CurTextureOffsetX = 0;
+
+			_CurTextureOffsetY += _Size + 1;
+			if (_CurTextureOffsetY >= _TextureH)
+			{
+				GLuint textureID;
+				glGenTextures(1, &textureID);
+				glBindTexture(GL_TEXTURE_2D, textureID);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+				glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, _TextureW, _TextureH, 0, GL_ALPHA, GL_UNSIGNED_BYTE, nullptr);
+				glBindTexture(GL_TEXTURE_2D, 0);
+
+				_AllTextures.push_back(textureID);
+				++_CurTextureIndex;
+				_CurTextureOffsetY = 0;
+			}
+		}
+	}
+
 	void XFrontMaker::Write(wchar_t* pStr, int x, int y, unsigned char r, unsigned char g, unsigned char b, unsigned char a)
 	{
 		glEnable(GL_TEXTURE_2D);
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glDisable(GL_DEPTH_TEST);
 
 		int startX = x;
 		int startY = y;
@@ -126,7 +227,7 @@ namespace Smile
 		int verIndex = 0;
 		for (int i = 0; i < size; ++i)
 		{
-			ScanChar(pStr[i]);
+			ScanCharEx(pStr[i]);
 
 			XFrontCharInfo cInfo = _CharInfos[pStr[i]];
 
@@ -166,7 +267,6 @@ namespace Smile
 			_VertexBuffer[i * 6 + 0]._Color._g = g;
 			_VertexBuffer[i * 6 + 0]._Color._b = b;
 			_VertexBuffer[i * 6 + 0]._Color._a = a;
-
 
 			_VertexBuffer[i * 6 + 1]._Pos._x = (float)startX + offsetX + cInfo._Width;
 			_VertexBuffer[i * 6 + 1]._Pos._y = (float)startY + offsetY;
@@ -237,9 +337,6 @@ namespace Smile
 		glDisableClientState(GL_COLOR_ARRAY);
 
 		glBindTexture(GL_TEXTURE_2D, 0);
-
-		glDisable(GL_TEXTURE_2D);
-		glDisable(GL_BLEND);
 	}
 
 	int XFrontMaker::GetTexNum()
@@ -249,6 +346,8 @@ namespace Smile
 
 	void XFrontMaker::Save(unsigned int index)
 	{
+		glEnable(GL_TEXTURE_2D);
+
 		unsigned char* pBuffer = new unsigned char[_TextureW * _TextureH];
 		glBindTexture(GL_TEXTURE_2D, _AllTextures[index]);
 		glGetTexImage(GL_TEXTURE_2D, 0, GL_ALPHA, GL_UNSIGNED_BYTE, pBuffer);
@@ -281,11 +380,13 @@ namespace Smile
 
 	void XFrontMaker::Render(unsigned int index)
 	{
+		glEnable(GL_TEXTURE_2D);
+
 		XVertexInfo vertices[] = {
-			{ {-1.0f, -1.0f, 0.0f},    {0.0f,1.0f},    {0, 0, 0, 255} },
-			{ {+1.0f, -1.0f, 0.0f},    {1.0f,1.0f},    {0, 0, 0, 255} },
-			{ {+1.0f, +1.0f, 0.0f},    {1.0f,0.0f},    {0, 0, 0, 255} },
-			{ {-1.0f, +1.0f, 0.0f},    {0.0f,0.0f},    {0, 0, 0, 255} }
+			{ {100.0f, 100.0f, 0.0f},    {0.0f,1.0f},    {0, 0, 0, 255} },
+			{ {1100.0f, 100.0f, 0.0f},    {1.0f,1.0f},    {0, 0, 0, 255} },
+			{ { 1100.0f, 800.0f, 0.0f},    {1.0f,0.0f},    {0, 0, 0, 255} },
+			{ {100.0f, 800.0f, 0.0f},    {0.0f,0.0f},    {0, 0, 0, 255} }
 		};																	 
 
 		glBindTexture(GL_TEXTURE_2D, _AllRenderTextures[index]);
@@ -305,6 +406,8 @@ namespace Smile
 
 	GLuint XFrontMaker::CreateTexture(unsigned int index)
 	{
+		glEnable(GL_TEXTURE_2D);
+
 		char buffer[32] = {};
 		sprintf(buffer, "%d.png", index);
 
@@ -326,5 +429,39 @@ namespace Smile
 		mgr.XFreeBuffer(pBuffer);
 
 		return _texture;
+	}
+
+	void XFrontMaker::_CheckError()
+	{
+		GLenum error = glGetError();
+		if (error != GL_NO_ERROR)
+		{
+			switch (error)
+			{
+			case GL_INVALID_ENUM:
+				MessageBox(0, _T("INVALID_ENUM!"), 0, MB_OK);
+				break;
+			case GL_INVALID_VALUE:
+				MessageBox(0, _T("INVALID_VALUE!"), 0, MB_OK);
+				break;
+			case GL_INVALID_OPERATION:
+				MessageBox(0, _T("INVALID_OPERATION!"), 0, MB_OK);
+				break;
+			case GL_STACK_OVERFLOW:
+				MessageBox(0, _T("STACK_OVERFLOW!"), 0, MB_OK);
+				break;
+			case GL_STACK_UNDERFLOW:
+				MessageBox(0, _T("STACK_UNDERFLOW!"), 0, MB_OK);
+				break;
+			case GL_OUT_OF_MEMORY:
+				MessageBox(0, _T("OUT_OF_MEMORY!"), 0, MB_OK);
+				break;
+			case GL_INVALID_FRAMEBUFFER_OPERATION:
+				MessageBox(0, _T("INVALID_FRAMEBUFFER_OPERATION!"), 0, MB_OK);
+				break;
+			default:
+				MessageBox(0, _T("Other Error!"), 0, MB_OK);
+			}
+		}
 	}
 }
