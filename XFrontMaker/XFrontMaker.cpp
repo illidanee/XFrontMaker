@@ -80,7 +80,7 @@ namespace Smile
 
 		glEnable(GL_TEXTURE_2D);
 
-		//获取字型信息
+		//获取字型信息，不生成字型位图。
 		FT_Load_Char(_Face, c, FT_LOAD_NO_BITMAP);
 
 		//根据字体大小生成字型位图
