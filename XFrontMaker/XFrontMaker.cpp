@@ -19,11 +19,15 @@ namespace Smile
 		glEnable(GL_TEXTURE_2D);
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
+		//初始化FreeType
 		FT_Init_FreeType(&_Library);
+		//生成字体Face
 		FT_New_Face(_Library, pFront, 0, &_Face);
+		//设置使用字符表
 		FT_Select_Charmap(_Face, FT_ENCODING_UNICODE);
+		//设置字体大小
 		_Size = size;
-		FT_Set_Pixel_Sizes(_Face, _Size, _Size);
+		FT_Set_Pixel_Sizes(_Face, 0, _Size);
 
 		//使用DPI设置像素的时候，如果DPI不是大于72,则字体的宽高会大于_Size,此时字体的缓存换行判断就会出问题。
 		//如果需要使用需要修改代码保存字体的最大宽高，用于字体缓存换行判断。
@@ -52,7 +56,9 @@ namespace Smile
 
 	void XFrontMaker::Done()
 	{
+		//销毁字体Face
 		FT_Done_Face(_Face);
+		//销毁FreeType
 		FT_Done_FreeType(_Library);
 
 		glDisable(GL_TEXTURE_2D);
@@ -76,15 +82,37 @@ namespace Smile
 
 		//获取字型信息
 		FT_Load_Char(_Face, c, FT_LOAD_RENDER);
+
+		//转换成抗锯齿位图
+		FT_Render_Glyph(_Face->glyph, FT_RENDER_MODE_NORMAL);
+
+		//获取字符信息
 		FT_GlyphSlot glyphSlot = _Face->glyph;
 		FT_Bitmap bitmap = glyphSlot->bitmap;
+
+		//数据转化，否则小字体不会正常显示。
+		FT_Bitmap newBitmap;
+		FT_Bitmap_New(&newBitmap);
+		FT_Bitmap* pBitmap = &bitmap;
+		if (bitmap.pixel_mode == FT_PIXEL_MODE_MONO)
+		{
+			if (FT_Bitmap_Convert(_Library, &bitmap, &newBitmap, 1) == 0)
+			{
+				/**
+				*   Go through the bitmap and convert all of the nonzero values to 0xFF (white).
+				*/
+				for (unsigned char* p = newBitmap.buffer, *endP = p + newBitmap.width * newBitmap.rows; p != endP; ++p)
+					*p ^= -*p ^ *p;
+				pBitmap = &newBitmap;
+			}
+		}
 
 		_CharInfos[c]._Found = true;
 		_CharInfos[c]._TexIndex = _CurTextureIndex;
 		_CharInfos[c]._X = _CurTextureOffsetX;
 		_CharInfos[c]._Y = _CurTextureOffsetY;
-		_CharInfos[c]._Width = bitmap.width;
-		_CharInfos[c]._Height = bitmap.rows;
+		_CharInfos[c]._Width = pBitmap->width;
+		_CharInfos[c]._Height = pBitmap->rows;
 		_CharInfos[c]._BearingX = glyphSlot->bitmap_left;
 		_CharInfos[c]._BearingY = glyphSlot->bitmap_top;
 		_CharInfos[c]._AdvanceX = glyphSlot->advance.x / 64;
@@ -92,8 +120,11 @@ namespace Smile
 
 		//保存字型纹理
 		glBindTexture(GL_TEXTURE_2D, _AllTextures[_CurTextureIndex]);
-		glTexSubImage2D(GL_TEXTURE_2D, 0, _CharInfos[c]._X, _CharInfos[c]._Y, _CharInfos[c]._Width, _CharInfos[c]._Height, GL_ALPHA, GL_UNSIGNED_BYTE, bitmap.buffer);
+		glTexSubImage2D(GL_TEXTURE_2D, 0, _CharInfos[c]._X, _CharInfos[c]._Y, _CharInfos[c]._Width, _CharInfos[c]._Height, GL_ALPHA, GL_UNSIGNED_BYTE, pBitmap->buffer);
 		glBindTexture(GL_TEXTURE_2D, 0);
+
+		//销毁
+		FT_Bitmap_Done(_Library, &newBitmap);
 
 		//辅助信息
 		_CurTextureOffsetX += _CharInfos[c]._Width + 1; //此处使用_CharInfos[c]._AdvanceX会浪费空间。
@@ -145,7 +176,7 @@ namespace Smile
 		FT_Get_Glyph(_Face->glyph, &glyph);
 
 		//转换成位图并使用抗锯齿
-		FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_MONO, 0, 1);
+		FT_Glyph_To_Bitmap(&glyph, FT_RENDER_MODE_NORMAL, 0, 1);
 		FT_BitmapGlyph bitmapGlyph = (FT_BitmapGlyph)glyph;
 		FT_Bitmap& bitmap = bitmapGlyph->bitmap;
 
@@ -227,7 +258,7 @@ namespace Smile
 		int verIndex = 0;
 		for (int i = 0; i < size; ++i)
 		{
-			ScanCharEx(pStr[i]);
+			ScanChar(pStr[i]);
 
 			XFrontCharInfo cInfo = _CharInfos[pStr[i]];
 
